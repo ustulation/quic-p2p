@@ -18,9 +18,12 @@ use crate::{connect, NodeInfo};
 use crate::{Peer, R};
 use crossbeam_channel as mpmc;
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use tokio::prelude::{Future, Stream};
 use tokio::runtime::current_thread;
+
+pub static B: AtomicBool = AtomicBool::new(false);
 
 /// Send message to peer. If the peer is a node and is not connected, it will attempt to connect to
 /// it first and then send the message. For un-connected clients, it'll simply error out.
@@ -143,7 +146,12 @@ pub fn write_to_peer_connection(peer_addr: SocketAddr, conn: &QConn, wire_msg: W
                 )
             })
         })
-        .map(|_| ());
+        //.map(|_| ());
+        .map(|_| {
+            if B.load(Ordering::SeqCst) {
+                println!("====Everything written");
+            }
+        });
 
     current_thread::spawn(leaf);
 }
@@ -180,6 +188,11 @@ fn read_peer_stream(peer_addr: SocketAddr, quic_stream: quinn::NewStream) -> R<(
         }
         quinn::NewStream::Uni(uni) => uni,
     };
+
+    if B.load(Ordering::SeqCst) {
+        println!("===== Going to sleep now");
+        std::thread::sleep(std::time::Duration::from_secs(1000));
+    }
 
     let leaf = i_stream
         .read_to_end(ctx(|c| c.max_msg_size_allowed))

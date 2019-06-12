@@ -458,9 +458,15 @@ mod tests {
         // The two qp2p can now send data to each other
         // Drain the receiver first
         while let Ok(_) = rx1.try_recv() {}
+        println!("===connecting");
+        qp2p2.connect_to(qp2p1_info.clone());
 
         let data = bytes::Bytes::from(vec![12, 13, 14, 253]);
+        println!("===sending");
+        std::thread::sleep(Duration::from_secs(3));
+        communicate::B.store(true, std::sync::atomic::Ordering::SeqCst);
         qp2p2.send(qp2p1_info.into(), data.clone());
+        println!("===sent");
 
         match unwrap!(rx1.recv()) {
             Event::ConnectedTo { peer } => assert_eq!(
@@ -471,6 +477,7 @@ mod tests {
             ),
             x => panic!("Received unexpected event: {:?}", x),
         }
+        println!("===rxing");
         match unwrap!(rx1.recv()) {
             Event::NewMessage { peer_addr, msg } => {
                 assert_eq!(peer_addr, qp2p2_info.peer_addr);
